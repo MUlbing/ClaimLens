@@ -7,7 +7,9 @@ authors = [
     { name = "Marianela Ulbing", email = "@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pandas>=3.0.6",
+]
 
 [project.scripts]
 claimlens = "claimlens:main"
@@ -15,3 +17,10 @@ claimlens = "claimlens:main"
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+    "ipykernel>=7.4.0",
+    "ipython>=9.17.1",
+]
