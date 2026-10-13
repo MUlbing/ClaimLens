@@ -11,6 +11,7 @@ dependencies = [
     "matplotlib>=3.11.2",
     "pandas>=3.0.6",
     "pyarrow>=26.0.0",
+    "pandas>=3.0.6",
 ]
 
 [project.scripts]
@@ -22,5 +23,8 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "ipdb>=0.13.13",
     "ipykernel>=7.4.0",
+    "ipython>=9.17.1",
+    "scikit-learn>=1.9.1",
 ]
