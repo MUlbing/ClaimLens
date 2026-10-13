@@ -23,4 +23,5 @@ dev = [
     "ipdb>=0.13.13",
     "ipykernel>=7.4.0",
     "ipython>=9.17.1",
+    "scikit-learn>=1.9.1",
 ]
