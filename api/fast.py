@@ -19,7 +19,7 @@ def root():
 
 @app.get("/predict")
 def predict_endpoint(
-    pickup_datetime: str = "input the text",
+    customer_message: str = "input the text",
 ):
     intent = 'Yes'
     return {
