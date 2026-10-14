@@ -12,6 +12,9 @@ dependencies = [
     "pandas>=3.0.6",
     "pyarrow>=26.0.0",
     "pandas>=3.0.6",
+    "nltk>=3.10.3",
+    "contractions>=0.1.73",
+    "xgboost>=3.4.1",
 ]
 
 [project.scripts]
