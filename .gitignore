@@ -30,6 +30,8 @@ models/
 *.pckl
 *.pkl
 
+notebooks/
+
 # Credentials (or files with potentially credentials inside)
 .env
 .env.yaml
