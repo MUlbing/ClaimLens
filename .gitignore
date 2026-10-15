@@ -36,3 +36,5 @@ models/
 .credentials
 secrets.toml
 *.json
+
+.DS_Store
