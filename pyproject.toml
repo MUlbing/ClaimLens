@@ -9,9 +9,13 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.11.2",
+    "nltk>=3.10.3",
     "pandas>=3.0.6",
     "pyarrow>=26.0.0",
     "pandas>=3.0.6",
+    "contractions>=0.1.73",
+    "scikit-learn>=1.9.1",
+    "joblib>=1.6.0",
 ]
 
 [project.scripts]

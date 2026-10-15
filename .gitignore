@@ -9,14 +9,17 @@ wheels/
 # Virtual environments
 .venv
 
+data/
+
 # Raw data
 raw_data/
 *.csv
 *.sqlite
 *.zip
-.ipynb
+*.json
 
 uv.lock
+*.parquet
 
 .python-version
 
@@ -36,3 +39,5 @@ models/
 .credentials
 secrets.toml
 *.json
+
+notebooks/
