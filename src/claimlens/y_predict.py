@@ -3,7 +3,7 @@ import joblib
 import pandas as pd
 from pathlib import Path
 
-call_model_path = "/Users/marianelaulbing/code/MUlbing/ClaimLens/models/tfidf_balanced_ngrams.joblib"
+call_model_path = "/Users/bangliu/code/MUlbing/ClaimLens/models/tfidf_balanced_ngrams.joblib"
 cleaner = CleanText()
 
 def load_model(model_path):
@@ -28,5 +28,5 @@ if __name__ == "__main__":
 
         y_pred = predict_method(test_model, test_input)
 
-        print(y_pred)
+        print(y_pred['class'])
     test_function()
