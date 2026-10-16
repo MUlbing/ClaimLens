@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from claimlens.y_predict import load_model, predict_method
 
 app = FastAPI()
 
@@ -21,8 +22,12 @@ def root():
 def predict_endpoint(
     customer_message: str = "input the text",
 ):
-    intent = 'Yes'
+    loaded_model = load_model("/Users/marianelaulbing/code/MUlbing/ClaimLens/models/tfidf_balanced_ngrams.joblib")
+    prediction = predict_method(loaded_model, customer_message)
+    intent = prediction["class"]
+    intent_probability = prediction["probability"]
+
     return {
         "Refund Intent": intent,
-        'Refund Intent Probability': 0.95
+        'Refund Intent Probability': intent_probability
     }
