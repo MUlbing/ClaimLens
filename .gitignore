@@ -42,5 +42,5 @@ secrets.toml
 
 notebooks/
 
-# Models
-models/
+
+.DS_Store

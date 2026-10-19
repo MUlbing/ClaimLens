@@ -74,7 +74,7 @@ REFUND_TEXT = "refund has been made"
 REFUND_INTENT_SUBFLOWS = {
     "refund_initiate", "refund_update", "cost", "manage_dispute_bill", "manage_cancel",
     "status_service_added", "status_quantity", "return_size", "return_color", "return_stain",
-    "bad_price_competitor", "status_mystery_fee", "manage",
+    "status_mystery_fee",
 }
 
 
