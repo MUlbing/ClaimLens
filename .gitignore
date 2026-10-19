@@ -11,6 +11,8 @@ wheels/
 
 data/
 
+data/processed/*.npy
+
 # Raw data
 raw_data/
 *.csv

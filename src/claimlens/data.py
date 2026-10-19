@@ -84,10 +84,56 @@ REFUND_FEE = re.compile(
     r"^\s*order has been updated with\s+\$?\d{1,3}(?:\.\d{1,2})?\.\s*$",
     re.IGNORECASE,
 )
-def is_refund_action(text):
-    """Return True if the action text means a refund or a removed fee."""
-    return REFUND_TEXT in text.lower() or bool(REFUND_FEE.search(text))
+# Fix 3: subflows where a fee update means money was given back
+FEE_REFUND_SUBFLOWS = [
+    "status_mystery_fee",
+    "manage_dispute_bill",
+    "mistimed_billing_never_bought",
+    "mistimed_billing_already_returned",
+    "cost",
+    "refund_initiate",
+    "bad_price_yesterday",
+    "status",                      # overcharges removed in status subflow
+]
 
+# Fix 4: count a started return as an approved refund? (team decision)
+COUNT_RETURNS_AS_REFUND = True
+
+RETURN_ACTION_PREFIX = "order has been updated with"
+
+RETURN_METHOD_KEYWORDS = [
+    "mail",
+    "store",
+    "drop",
+]
+
+# Fix 4: the subflows where those return actions count
+RETURN_SUBFLOWS = [
+    "return_size", "return_color", "return_stain",
+]
+
+
+def is_refund_action(text, subflow=None):
+    """Return True if the action text means a refund was given, a fee was removed,
+    or (optionally) a return was accepted."""
+    text_lower = text.lower().strip()
+
+    # 1. An explicit refund
+    if REFUND_TEXT in text_lower:
+        return True
+
+    # 2. A fee removal, only in fee-related conversations
+    if REFUND_FEE.search(text) and subflow in FEE_REFUND_SUBFLOWS:
+        return True
+
+    # 3. An accepted return: only in return conversations, and only when a return method is recorded
+    if COUNT_RETURNS_AS_REFUND and subflow in RETURN_SUBFLOWS:
+        if text_lower.startswith(RETURN_ACTION_PREFIX):
+            for keyword in RETURN_METHOD_KEYWORDS:
+                if keyword in text_lower:
+                    return True
+
+    return False
 
 
 
@@ -182,7 +228,7 @@ class FullChat:
                     "subflow": scenario.get("subflow"),
                     "full_msgs": full_msgs,
                     "refund_output": int(any(
-                        speaker == "action" and is_refund_action(text)
+                        speaker == "action" and is_refund_action(text, scenario.get("subflow"))
                         for speaker, text in turns
                     )),
                 })
