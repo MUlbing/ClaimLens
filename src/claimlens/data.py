@@ -129,6 +129,59 @@ class FirstMessage:
         return pd.DataFrame(rows)
 
 
+# ---------------------------------------------------------------------------
+# Step 3. Extract all customer messages for the second model
+# ---------------------------------------------------------------------------
+
+class FullChat:
+    """Collect all customer messages from each conversation."""
+
+    def extract(self, turns):
+        """Apply the existing extraction cleanup without stopping at agent replies."""
+        parts = []
+
+        for speaker, text in turns:
+            if speaker != "customer":
+                continue
+
+            text = GREETING_RE.sub(" ", text.replace("’", "'")).strip()
+            text = contractions.fix(text)
+
+            if BARE_NAME_RE.match(GREETING_RE.sub(" ", text).strip()):
+                continue
+
+            text = NAME_CAPS_RE.sub(" ", NAME_INTRO_RE.sub(" ", text))
+
+            if re.search(r"[A-Za-z0-9]", text):
+                parts.append(text)
+
+        return " ".join(" ".join(parts).split())
+
+    def build_df(self, data):
+        """Build one row per conversation, with full_msgs and refund_output."""
+        rows = []
+
+        for split in ("train", "dev", "test"):
+            for chat in data[split]:
+                turns = chat["original"]
+                scenario = chat.get("scenario", {})
+                full_msgs = self.extract(turns)
+
+                rows.append({
+                    "split": split,
+                    "id": chat["convo_id"],
+                    "flow": scenario.get("flow"),
+                    "subflow": scenario.get("subflow"),
+                    "full_msgs": full_msgs,
+                    "refund_output": int(any(
+                        speaker == "action" and REFUND_TEXT in text.lower()
+                        for speaker, text in turns
+                    )),
+                    "n_words": len(full_msgs.split()),
+                })
+
+        return pd.DataFrame(rows)
+    
 # ----------------------------------------------------------------------------------------------------
 # Step 4. Clean Client input (either from first message or API input)
 # ----------------------------------------------------------------------------------------------------
