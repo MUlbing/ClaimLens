@@ -67,8 +67,7 @@ KEEP_WORDS = {
 # Words removed in CleanText: sklearn stop words minus KEEP_WORDS, plus the extra words
 STOP_WORDS = (set(ENGLISH_STOP_WORDS) - KEEP_WORDS) | EXTRA_STOP_WORDS
 
-# Action text that tells a refund was issued
-REFUND_TEXT = "refund has been made"
+# IMPUT FOR BLUIDING Y-LABEL FOR 1st MODEL
 
 # v1 list of subflows treated as refund intent. Not validated yet.
 REFUND_INTENT_SUBFLOWS = {
@@ -77,9 +76,25 @@ REFUND_INTENT_SUBFLOWS = {
     "status_mystery_fee",
 }
 
+# IMPUT FOR BLUIDING Y-LABEL FOR 2nd MODEL
+# Action text that tells a refund was issued
+REFUND_TEXT = "refund has been made"
+# Fee-removal action: "Order has been updated with 64." or "$12.95."
+REFUND_FEE = re.compile(
+    r"^\s*order has been updated with\s+\$?\d{1,3}(?:\.\d{1,2})?\.\s*$",
+    re.IGNORECASE,
+)
+def is_refund_action(text):
+    """Return True if the action text means a refund or a removed fee."""
+    return REFUND_TEXT in text.lower() or bool(REFUND_FEE.search(text))
+
+
+
 
 # ----------------------------------------------------------------------------------------------------
-# Step 2. Extract first messages from client from the raw_data and create the dataframe
+# Step 2. Extract messages from client from the raw_data and create the dataframe
+# Class FirstMessage with only first messages
+# Class FullChat with full chat only client
 # ----------------------------------------------------------------------------------------------------
 
 class FirstMessage:
@@ -110,7 +125,7 @@ class FirstMessage:
         return " ".join(" ".join(parts).split())
 
     def build_df(self, data):
-        """One row per chat: split, id, flow, subflow, first_msgs, refund_intent, refund_output, n_words."""
+        """One row per chat: split, id, flow, subflow, first_msgs, refund_intent."""
         rows = []
         for split in ("train", "dev", "test"):
             for chat in data[split]:
@@ -123,11 +138,56 @@ class FirstMessage:
                     "subflow": scenario.get("subflow"),
                     "first_msgs": first_msgs,
                     "refund_intent": int(scenario.get("subflow") in REFUND_INTENT_SUBFLOWS),  # label for model 1
-                    "refund_output": int(any(s == "action" and REFUND_TEXT in t.lower() for s, t in turns)),  # label for model 2
-                    "n_words": len(first_msgs.split()),
                 })
         return pd.DataFrame(rows)
 
+class FullChat:
+    """Collect all customer messages from each conversation."""
+
+    def extract(self, turns):
+        """Apply the existing extraction cleanup without stopping at agent replies."""
+        parts = []
+
+        for speaker, text in turns:
+            if speaker != "customer":
+                continue
+
+            text = GREETING_RE.sub(" ", text.replace("’", "'")).strip()
+            text = contractions.fix(text)
+
+            if BARE_NAME_RE.match(GREETING_RE.sub(" ", text).strip()):
+                continue
+
+            text = NAME_CAPS_RE.sub(" ", NAME_INTRO_RE.sub(" ", text))
+
+            if re.search(r"[A-Za-z0-9]", text):
+                parts.append(text)
+
+        return " ".join(" ".join(parts).split())
+
+    def build_df(self, data):
+        """Build one row per conversation, with full_msgs and refund_output."""
+        rows = []
+
+        for split in ("train", "dev", "test"):
+            for chat in data[split]:
+                turns = chat["original"]
+                scenario = chat.get("scenario", {})
+                full_msgs = self.extract(turns)
+
+                rows.append({
+                    "split": split,
+                    "id": chat["convo_id"],
+                    "flow": scenario.get("flow"),
+                    "subflow": scenario.get("subflow"),
+                    "full_msgs": full_msgs,
+                    "refund_output": int(any(
+                        speaker == "action" and is_refund_action(text)
+                        for speaker, text in turns
+                    )),
+                })
+
+        return pd.DataFrame(rows)
 
 # ----------------------------------------------------------------------------------------------------
 # Step 4. Clean Client input (either from first message or API input)
