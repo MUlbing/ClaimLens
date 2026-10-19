@@ -1,16 +1,20 @@
 from claimlens.data import CleanText
+from claimlens.embeddings import embed_texts
 import joblib
 import pandas as pd
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-MODEL_PATH = ROOT / "models" / "tfidf_balanced_ngrams.joblib"
-THRESHOLD_PATH = ROOT / "models" / "tfidf_balanced_ngrams_threshold.joblib"
 
-cleaner = CleanText()
+ROOT = Path(__file__).resolve().parents[2]
+MODEL_PATH = ROOT / "models" / "sentence_classifier.joblib"
+THRESHOLD_PATH = ROOT / "models" / "sentence_threshold.joblib"
+
+cleaner = CleanText(remove_stop_words=False, lemmatize=False)
+
 
 def load_model(model_path=MODEL_PATH, threshold_path=THRESHOLD_PATH):
+    """Load the trained model and its threshold."""
     model = joblib.load(model_path)
     threshold = joblib.load(threshold_path)
     return model, threshold
@@ -18,10 +22,12 @@ def load_model(model_path=MODEL_PATH, threshold_path=THRESHOLD_PATH):
 def predict_method(model, threshold, client_input):
     clean_input = cleaner.clean(client_input)
     print(clean_input)
-    # predicted_class = model.predict([clean_input])[0]
-    probability = model.predict_proba([clean_input])[0][1]
+    embedding = embed_texts([clean_input])
+    probability = model.predict_proba(embedding)[0][1]
     return {
-        "Refund Intent": int(probability >= threshold), "probability": probability}
+        "refund_intent": int(probability >= threshold),
+        "probability": float(probability),
+    }
 
 
 

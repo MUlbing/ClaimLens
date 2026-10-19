@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from claimlens.y_predict import load_model, predict_method
 
+
 app = FastAPI()
 set_config(transform_output="pandas")
 
@@ -18,6 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.state.model, app.state.threshold = load_model()
+
 
 @app.get("/")
 def root():
@@ -28,12 +31,10 @@ def root():
 def predict_endpoint(
     customer_message: str = "input the text",
 ):
-    loaded_model = load_model(MODEL_PATH)
-    prediction = predict_method(loaded_model, customer_message)
-    intent = int(prediction["class"])
-    intent_probability = float(prediction["probability"])
+    result = predict_method(app.state.model, app.state.threshold, customer_message)
 
+    intent = "Yes" if result["refund_intent"] == 1 else "No"
     return {
         "Refund Intent": intent,
-        'Refund Intent Probability': intent_probability
+        "Refund Intent Probability": round(result["probability"], 2),
     }
