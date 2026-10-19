@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+.env
+.env.*
+.envrc
+.python-version
+notebooks/
+data/
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+*.zip
