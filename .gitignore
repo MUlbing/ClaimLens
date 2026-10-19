@@ -41,3 +41,6 @@ secrets.toml
 *.json
 
 notebooks/
+
+
+.DS_Store
