@@ -67,16 +67,20 @@ KEEP_WORDS = {
 # Words removed in CleanText: sklearn stop words minus KEEP_WORDS, plus the extra words
 STOP_WORDS = (set(ENGLISH_STOP_WORDS) - KEEP_WORDS) | EXTRA_STOP_WORDS
 
-# IMPUT FOR BLUIDING Y-LABEL FOR 1st MODEL
+# ----------------------------------------------------------------------------------------------------
+# Step 1b. Definitions for the labels (y)
+# ----------------------------------------------------------------------------------------------------
 
-# v1 list of subflows treated as refund intent. Not validated yet.
+# Subflows treated as refund intent. mistimed_billing_never_bought was added because 67% of its chats end with a money action.
 REFUND_INTENT_SUBFLOWS = {
     "refund_initiate", "refund_update", "cost", "manage_dispute_bill", "manage_cancel",
     "status_service_added", "status_quantity", "return_size", "return_color", "return_stain",
-    "status_mystery_fee",
+    "status_mystery_fee", "mistimed_billing_never_bought",
 }
 
-# IMPUT FOR BLUIDING Y-LABEL FOR 2nd MODEL
+# Subflows where a money action counts as a return. In any other subflow it counts as a refund.
+RETURN_SUBFLOWS = {"return_size", "return_color", "return_stain"}
+
 # Action text that tells a refund was issued
 REFUND_TEXT = "refund has been made"
 # Fee-removal action: "Order has been updated with 64." or "$12.95."
@@ -84,23 +88,27 @@ REFUND_FEE = re.compile(
     r"^\s*order has been updated with\s+\$?\d{1,3}(?:\.\d{1,2})?\.\s*$",
     re.IGNORECASE,
 )
-def is_refund_action(text):
-    """Return True if the action text means a refund or a removed fee."""
-    return REFUND_TEXT in text.lower() or bool(REFUND_FEE.search(text))
+# Other money actions: credit, fee waiver, cancellation and the return method (mail, in store, drop off)
+MONEY_ACTION = re.compile(
+    r"^\s*order has been updated with\s*(give credit|waive fee|cancel (order|shipment)|(by )?mail|in store|drop ?off)",
+    re.IGNORECASE,
+)
+def is_money_action(text):
+    """Return True if the action text means a refund, a removed fee, a credit, a cancellation or a return."""
+    return REFUND_TEXT in text.lower() or bool(REFUND_FEE.search(text)) or bool(MONEY_ACTION.search(text))
 
 
 
 
 # ----------------------------------------------------------------------------------------------------
 # Step 2. Extract messages from client from the raw_data and create the dataframe
-# Class FirstMessage with only first messages
-# Class FullChat with full chat only client
+# Class ChatData: first messages (X for model 1), all customer messages (X for model 2) and the labels
 # ----------------------------------------------------------------------------------------------------
 
-class FirstMessage:
-    """Goes from the raw data to one dataframe: first messages (X) and refund_intent, refund_output (y)."""
+class ChatData:
+    """Goes from the raw data to one dataframe: first_msgs, full_msgs and the labels refund_intent, intent_approved, approved_type."""
 
-    def extract(self, turns):
+    def extract_first(self, turns):
         """Customer messages before the first agent reply that comes after real content.
         Agent turns are ignored until the customer wrote something with intent.
         Names are removed: after "my name is" or "I am", and messages that are only a name."""
@@ -124,28 +132,8 @@ class FirstMessage:
                 break
         return " ".join(" ".join(parts).split())
 
-    def build_df(self, data):
-        """One row per chat: split, id, flow, subflow, first_msgs, refund_intent."""
-        rows = []
-        for split in ("train", "dev", "test"):
-            for chat in data[split]:
-                turns, scenario = chat["original"], chat.get("scenario", {})
-                first_msgs = self.extract(turns)
-                rows.append({
-                    "split": split,
-                    "id": chat["convo_id"],
-                    "flow": scenario.get("flow"),
-                    "subflow": scenario.get("subflow"),
-                    "first_msgs": first_msgs,
-                    "refund_intent": int(scenario.get("subflow") in REFUND_INTENT_SUBFLOWS),  # label for model 1
-                })
-        return pd.DataFrame(rows)
-
-class FullChat:
-    """Collect all customer messages from each conversation."""
-
-    def extract(self, turns):
-        """Apply the existing extraction cleanup without stopping at agent replies."""
+    def extract_full(self, turns):
+        """All customer messages with the same cleanup, without stopping at agent replies."""
         parts = []
 
         for speaker, text in turns:
@@ -166,27 +154,32 @@ class FullChat:
         return " ".join(" ".join(parts).split())
 
     def build_df(self, data):
-        """Build one row per conversation, with full_msgs and refund_output."""
-        rows = []
+        """One row per chat: split, id, flow, subflow, first_msgs, full_msgs, refund_intent, intent_approved, approved_type.
 
+        intent_approved: 1 if the chat has a money action (refund, fee removed, credit, cancellation, return), else 0.
+        refund_intent: 1 if the subflow is in REFUND_INTENT_SUBFLOWS, or if intent_approved is 1 (a chat with a money action has the intent).
+        approved_type: "return" if intent_approved is 1 and the subflow is a return subflow, "refund" for any other subflow, 0 if not approved."""
+        rows = []
         for split in ("train", "dev", "test"):
             for chat in data[split]:
-                turns = chat["original"]
-                scenario = chat.get("scenario", {})
-                full_msgs = self.extract(turns)
-
+                turns, scenario = chat["original"], chat.get("scenario", {})
+                subflow = scenario.get("subflow")
+                approved = any(speaker == "action" and is_money_action(text) for speaker, text in turns)
+                if approved:
+                    approved_type = "return" if subflow in RETURN_SUBFLOWS else "refund"
+                else:
+                    approved_type = 0
                 rows.append({
                     "split": split,
                     "id": chat["convo_id"],
                     "flow": scenario.get("flow"),
-                    "subflow": scenario.get("subflow"),
-                    "full_msgs": full_msgs,
-                    "refund_output": int(any(
-                        speaker == "action" and is_refund_action(text)
-                        for speaker, text in turns
-                    )),
+                    "subflow": subflow,
+                    "first_msgs": self.extract_first(turns),
+                    "full_msgs": self.extract_full(turns),
+                    "refund_intent": int(subflow in REFUND_INTENT_SUBFLOWS or approved),  # label for model 1
+                    "intent_approved": int(approved),  # label for model 2
+                    "approved_type": approved_type,  # "refund", "return" or 0
                 })
-
         return pd.DataFrame(rows)
 
 # ----------------------------------------------------------------------------------------------------
